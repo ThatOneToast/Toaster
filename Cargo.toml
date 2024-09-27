@@ -1,0 +1,8 @@
+[package]
+name = "toaster"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+threadpool = "1.8.1"
+toml = "0.8.19"

@@ -1,0 +1,27 @@
+[settings]
+threads = 2
+
+
+[command.testing]
+description = "testing"
+shell = "zsh"
+stages = [
+    "%[color:cyan,o:l6;-s] clear && echo \"===== Dirs ===== \" ",
+    "%[color:cyan,o:l6;] ls",
+    "echo Hello World",
+    "%[color:green] echo ok123"
+]
+
+
+[system.testing]
+shell = "zsh"
+description = "testing will send Hola! every 30 seconds"
+
+stages = [
+    "echo \"Hola!\" | tee output.log",
+]
+
+schedules = [
+    "00:00:00:00:30"
+]
+
