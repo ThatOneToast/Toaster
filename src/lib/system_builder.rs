@@ -1,8 +1,10 @@
 use std::{
     collections::BTreeMap,
-    thread,
+    sync::{Arc, RwLock},
     time::{Duration, UNIX_EPOCH},
 };
+
+use priority::queue::{prelude::Prio, Queue};
 
 use super::system_stage::SStage;
 
@@ -33,7 +35,7 @@ impl SystemBuilder {
         self.stages.iter().map(|(_, v)| v).collect::<Vec<&SStage>>()
     }
 
-    pub fn start(self) {
+    pub fn start(self, output_queue: Arc<RwLock<Queue<String>>>) {
         let mut last_ran_stages: BTreeMap<u8, u64> = BTreeMap::new();
 
         loop {
@@ -43,30 +45,40 @@ impl SystemBuilder {
                 let execution_schedule = stage.schedule.clone();
                 let scheduled_time = execution_schedule.get_as_u64();
 
-                // Check if it's time to run the command
                 if last_ran_stages.get(stage_id).unwrap_or(&0) + scheduled_time <= current_time_u64
                 {
                     let command = stage.command.clone();
-                    println!("Running command: {}", command);
 
-                    let output = std::process::Command::new(self.shell.as_str())
+                    let output_res = std::process::Command::new(self.shell.as_str())
                         .arg("-c")
                         .arg(command.as_str())
-                        .spawn()
-                        .expect("Failed to execute command");
-                    
-                    let output_result = output.wait_with_output().expect("Failed to wait on command");
-                    
-                    println!("Command output: {}", String::from_utf8_lossy(&output_result.stdout));
-                    
+                        .output();
 
-                    // Update the last ran time for this stage
+                    let output = match output_res {
+                        Ok(output) => output,
+                        Err(e) => {
+                            eprintln!("Failed to run command: {}", e);
+                            continue;
+                        }
+                    };
+
+                    let mut final_output = String::new();
+                    final_output.push_str(
+                        format!(
+                            "{}: Output: {}",
+                            self.name.clone(),
+                            String::from_utf8(output.stdout).unwrap()
+                        )
+                        .as_str(),
+                    );
+
+                    output_queue.write().unwrap().push(Prio::wlip(final_output));
+
                     last_ran_stages.insert(*stage_id, current_time_u64);
                 }
-            }
 
-            // Sleep briefly to prevent tight looping
-            thread::sleep(Duration::from_millis(100));
+                std::thread::sleep(Duration::from_millis(100));
+            }
         }
     }
 }

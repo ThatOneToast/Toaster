@@ -1,27 +1,37 @@
 [settings]
-threads = 2
+threads = 1
+def_sort_row_length = 4
+
+[system.hola_counter]
+shell = "zsh"
+description = "testing will send Hola! every 30 seconds and start an endless count"
+stages = [
+    "echo \"hola\" | tee -a /Users/toast/Documents/git/toaster/output.log",
+    """
+    increment_counter() {
+        local counter_file="$HOME/.counter"
+        if [[ ! -f "$counter_file" ]]; then
+            echo 0 > "$counter_file"
+        fi
+        COUNTER=$(($(cat "$counter_file") + 1))
+        echo $COUNTER > "$counter_file"
+        echo $COUNTER | tee -a output.log # Append counter value to output.log
+    }
+    increment_counter
+    """,
+]
+schedules = [
+    "00:01:00:00:00", # every 30 seconds
+    "00:00:00:00:01", # every 1 seconds
+]
 
 
 [command.testing]
 description = "testing"
 shell = "zsh"
 stages = [
-    "%[color:cyan,o:l6;-s] clear && echo \"===== Dirs ===== \" ",
+    "%[color:cyan,o:-s] clear && echo \"===== Dirs ===== \" ",
     "%[color:cyan,o:l6;] ls",
     "echo Hello World",
     "%[color:green] echo ok123"
 ]
-
-
-[system.testing]
-shell = "zsh"
-description = "testing will send Hola! every 30 seconds"
-
-stages = [
-    "echo \"Hola!\" | tee output.log",
-]
-
-schedules = [
-    "00:00:00:00:30"
-]
-

@@ -1,8 +1,23 @@
 [package]
 name = "toaster"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
+
+
+[[bin]]
+name = "toaster"
+path = "src/main.rs"
+
+[[bin]]
+name = "toaster-daemon"
+path = "src/bin/daemon.rs"
+
+[lib]
+name = "lib"
+path = "src/lib/lib.rs"
 
 [dependencies]
 threadpool = "1.8.1"
 toml = "0.8.19"
+priority = { git = "https://github.com/ThatOneToast/priority.git", tag = "v1.0.3-2"}
+chrono = "0.4.38"

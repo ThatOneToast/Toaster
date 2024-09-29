@@ -1,10 +1,7 @@
-
 use crate::{
-    color::Color, settings::Settings, toaster::{command_builder::CommandBuilder, system_builder::SystemBuilder, system_stage::{SStage, Schedule}}
+    color::Color, command_builder::CommandBuilder, settings::Settings, system_builder::SystemBuilder, system_stage::{SStage, Schedule}
 };
 use toml::Value;
-
-
 
 pub struct TomlParser<'a> {
     pub content: &'a str,
@@ -21,32 +18,43 @@ impl<'a> TomlParser<'a> {
             parsed_content: Some(value),
         }
     }
-    
-    pub fn get_settings(&self) -> Result<Settings, String> {
+
+    fn get_settings(&self) -> Result<Settings, String> {
         let value = self.parsed_content.as_ref().unwrap();
         let table = value.as_table().unwrap();
-        
+
         let settings = table.get("settings").unwrap();
         let threads = settings.get("threads").unwrap().as_integer().unwrap() as usize;
-        Ok(Settings::new(threads))
-    }
-    
-    pub fn parse(&self) -> Result<(Vec<(String, SystemBuilder)>, Vec<(String, CommandBuilder)>), String> {
-        let systems = self.return_as_system()?;
-        let commands = self.return_as_command()?;
-        Ok((systems, commands))
+        let default_row_length = settings.get("default_row_length").unwrap().as_integer().unwrap() as usize;
+        Ok(Settings::new(threads, default_row_length))
     }
 
-    fn return_as_system(&self) -> Result<Vec<(String, SystemBuilder)>, String> {
+    pub fn parse(
+        &self,
+    ) -> Result<
+        (
+            Option<Vec<(String, SystemBuilder)>>,
+            Option<Vec<(String, CommandBuilder)>>,
+            Settings,
+        ),
+        String,
+    > {
+        let systems = self.return_as_system();
+        let commands = self.return_as_command().unwrap();
+        let settings = self.get_settings()?;
+        Ok((systems, commands, settings))
+    }
+
+    fn return_as_system(&self) -> Option<Vec<(String, SystemBuilder)>> {
         let parsed_content = self.parsed_content.as_ref().unwrap();
         let table = parsed_content.as_table().unwrap();
 
         let toml_systems = match table.get("system") {
             Some(cmd) => cmd.as_table().unwrap(),
-            None => return Err("No system found in TOML".to_string()),
+            None => return None,
         };
 
-        let systems: Vec<(String, SystemBuilder)> = Vec::new();
+        let mut systems: Vec<(String, SystemBuilder)> = Vec::new();
 
         for (key, value) in toml_systems.iter() {
             let name = key.to_string();
@@ -67,39 +75,46 @@ impl<'a> TomlParser<'a> {
                 .get("stages")
                 .expect("System doesn't have stages; expected an array.")
                 .as_array()
-                .map(|a| a.iter().map(|s| 
-                    s.as_str().unwrap().to_string())
-                .collect::<Vec<String>>())
+                .map(|a| {
+                    a.iter()
+                        .map(|s| s.as_str().unwrap().to_string())
+                        .collect::<Vec<String>>()
+                })
                 .unwrap();
             let schedules = value
                 .get("schedules")
                 .expect("System doesn't have a schedule")
                 .as_array()
-                .map(|a| a.iter().map(|s| 
-                    s.as_str().unwrap().to_string())
-                .collect::<Vec<String>>())
+                .map(|a| {
+                    a.iter()
+                        .map(|s| s.as_str().unwrap().to_string())
+                        .collect::<Vec<String>>()
+                })
                 .unwrap();
-            
 
             let mut system_builder = SystemBuilder::new(name.to_owned(), description, shell);
-            
+
             for (stage, schedule) in stages.iter().zip(schedules.iter()) {
-                let stage = SStage::new(stage.to_owned(), Schedule::from_str(schedule.as_str()).unwrap());
+                let stage = SStage::new(
+                    stage.to_owned(),
+                    Schedule::from_str(schedule.as_str()).unwrap(),
+                );
                 system_builder.add_stage(stage);
             }
+            
+            systems.push((name, system_builder));
         }
 
-        Ok(systems)
+        Option::from(systems)
     }
 
-    
-    fn return_as_command(&self) -> Result<Vec<(String, CommandBuilder)>, String> {
+    fn return_as_command(&self) -> Result<Option<Vec<(String, CommandBuilder)>>, String> {
         let parsed_content = self.parsed_content.as_ref().unwrap();
         let table = parsed_content.as_table().unwrap();
 
         let toml_commands = match table.get("command") {
             Some(cmd) => cmd.as_table().unwrap(),
-            None => return Err("No command found in TOML".to_string()),
+            None => return Ok(None),
         };
 
         let mut commands: Vec<(String, CommandBuilder)> = Vec::new();
@@ -169,7 +184,7 @@ impl<'a> TomlParser<'a> {
             }
         }
 
-        Ok(commands)
+        Ok(Some(commands))
     }
 
     /// Handle special parameters and modify the CommandBuilder accordingly.
@@ -180,7 +195,7 @@ impl<'a> TomlParser<'a> {
     ) -> SpecialFields {
         let mut color = Color::White;
         let mut sorted = false; // Whether to sort the output
-        let mut elements_per_line: usize = 1;
+        let mut elements_per_line: usize = self.get_settings().unwrap().default_row_length;
 
         for param in params {
             if param.starts_with("color:") {
@@ -203,7 +218,6 @@ impl<'a> TomlParser<'a> {
                     if flag.starts_with("l") {
                         elements_per_line =
                             flag.strip_prefix("l").unwrap().parse::<usize>().unwrap();
-                        let s = if sorted { "sorting" } else { "organizing" };
                     }
                 }
 

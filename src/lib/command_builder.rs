@@ -1,11 +1,12 @@
 use std::{collections::BTreeMap, fmt::{Display, Formatter}, process::Command};
 
+
 use crate::{color::Color, tomlp::SortRules};
 
 use super::command_stage::Stage;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CommandBuilder {
     pub name: String,
     pub description: String,
