@@ -21,3 +21,4 @@ threadpool = "1.8.1"
 toml = "0.8.19"
 priority = { git = "https://github.com/ThatOneToast/priority.git", tag = "v1.0.3-2"}
 chrono = "0.4.38"
+bincode = "1.3.3"

@@ -1,5 +1,9 @@
 use crate::{
-    color::Color, command_builder::CommandBuilder, settings::Settings, system_builder::SystemBuilder, system_stage::{SStage, Schedule}
+    color::Color,
+    command_builder::CommandBuilder,
+    settings::Settings,
+    system_builder::SystemBuilder,
+    system_stage::{SStage, Schedule},
 };
 use toml::Value;
 
@@ -25,7 +29,11 @@ impl<'a> TomlParser<'a> {
 
         let settings = table.get("settings").unwrap();
         let threads = settings.get("threads").unwrap().as_integer().unwrap() as usize;
-        let default_row_length = settings.get("default_row_length").unwrap().as_integer().unwrap() as usize;
+        let default_row_length = settings
+            .get("default_row_length")
+            .unwrap()
+            .as_integer()
+            .unwrap() as usize;
         Ok(Settings::new(threads, default_row_length))
     }
 
@@ -101,7 +109,7 @@ impl<'a> TomlParser<'a> {
                 );
                 system_builder.add_stage(stage);
             }
-            
+
             systems.push((name, system_builder));
         }
 
