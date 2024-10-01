@@ -1,9 +1,5 @@
 use std::{
-    fs::{File, OpenOptions},
-    io::Write,
-    path::PathBuf,
-    sync::{Arc, Mutex, RwLock},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    fs::{File, OpenOptions}, io::Write, path::PathBuf, sync::{Arc, Mutex, RwLock}, task::Context, time::{Duration, SystemTime, UNIX_EPOCH}
 };
 
 use command_builder::CommandBuilder;
@@ -151,6 +147,8 @@ default_row_length = 4
 
                 let mut queue = output_queue.write().unwrap();
                 let copy_of_queue = queue.all();
+                
+                let mut text_to_write: Vec<String> = vec![];
 
                 for output in copy_of_queue {
                     queue.pop_by_id(output.0.identifier);
@@ -161,17 +159,21 @@ default_row_length = 4
                         .to_string();
 
                     let text = format!("{} :::: {}\n", hh_mm_ss, output.1);
-                    let res = file.write_all(text.as_bytes());
-                    match res {
-                        Ok(_) => {
-                            last_flush_output.write().unwrap().replace(text.clone());
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to write to log file: {}", e);
-                        }
-                    }
+                    text_to_write.push(text);
                 }
 
+                let text_bytes = text_to_write.join("");
+                let text_bytes = text_bytes.as_bytes();
+                
+                let res = file.write_all(text_bytes);
+                match res {
+                    Ok(_) => {
+                        last_flush_output.write().unwrap().replace(text_to_write.join("\n"));
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to write to log file: {}", e);
+                    }
+                }
                 *flush_output_signal.write().unwrap() = false;
             }
             std::thread::sleep(Duration::from_millis(20));
